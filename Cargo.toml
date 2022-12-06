@@ -15,4 +15,10 @@ debug = { path = "./utils" }
 predicates = "2.1"
 assert_cmd = "2.0"
 assert_fs = "1.0"
-serial_test = "0.9"
+
+[[bin]]
+name = "time-tracker"
+
+[lib]
+name = "timetracker"
+
