@@ -4,20 +4,19 @@ This is a simple CLI time tracker built with Rust. It is a work in progress.
 
 ## Usage
 
-```bash
-$ time-tracker
-```
-
-## Installation
-
-```bash
-$ cargo install time-tracker
-```
+Clone the repository and run `cargo run` to start the program.
 
 ## License
 
 MIT
 
+## Current Features
+- Users can enter a task name and start a timer.
+- Users can see the timer running.
+- Users can stop the timer.
+- Users can start another timer.
+- Users can exit the program.
+- Users see a list of their time entries upon exiting the program.
 
 ## Feature Roadmap
 - [ ] Display a menu bar with pages:
