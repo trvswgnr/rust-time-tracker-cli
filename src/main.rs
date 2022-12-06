@@ -7,7 +7,7 @@
 //! Upon exiting, the program prints the total time tracked for each task.
 
 use std::io::{stdout, Write};
-use time_tracker::{show_timer, Task, Timer};
+use timetracker::{Task, Timer};
 
 /// A simple time tracking application for the command line interface.
 ///
@@ -42,7 +42,7 @@ fn main() {
             println!("Started task '{}', stop the task with 'stop'", task.name);
             // show the timer until the user presses enter
             let mut new_timer = Timer::new();
-            show_timer(&task.name, &mut new_timer);
+            task.show_timer(&mut new_timer);
         } else {
             let mut task = tasks.pop().unwrap();
             task.stop();
