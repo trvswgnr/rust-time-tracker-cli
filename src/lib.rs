@@ -59,7 +59,7 @@ fn get_clock_format(elapsed: u64) -> String {
 /// # Examples
 ///
 /// ```no_run
-/// let mut timer = time_tracker::Timer::new();
+/// let mut timer = timetracker::Timer::new();
 /// std::thread::sleep(std::time::Duration::from_secs(5));
 /// timer.update();
 ///
@@ -109,7 +109,7 @@ impl std::fmt::Display for Timer {
 /// # Examples
 /// ```no_run
 /// let name = String::from("Task 1");
-/// let mut task = time_tracker::Task::new(&name);
+/// let mut task = timetracker::Task::new(&name);
 /// let task_name = &task.name;
 /// task.stop();
 /// let seconds = task.time_tracked_seconds();
@@ -128,7 +128,7 @@ impl Task {
     /// # Examples
     /// ```no_run
     /// let name = String::from("Task 1");
-    /// let task = time_tracker::Task::new(&name);
+    /// let task = timetracker::Task::new(&name);
     /// ```
     pub fn new(name: &String) -> Task {
         Task {
@@ -144,7 +144,7 @@ impl Task {
     ///
     /// ```no_run
     /// let name = String::from("Task 1");
-    /// let mut task = time_tracker::Task::new(&name);
+    /// let mut task = timetracker::Task::new(&name);
     /// std::thread::sleep(std::time::Duration::from_secs(5));
     /// task.stop();
     /// ```
@@ -161,7 +161,7 @@ impl Task {
     ///
     /// ```no_run
     /// let name = String::from("Task 1");
-    /// let mut task = time_tracker::Task::new(&name);
+    /// let mut task = timetracker::Task::new(&name);
     /// std::thread::sleep(std::time::Duration::from_secs(1));
     /// task.stop();
     /// let time_tracked = task.time_tracked_seconds();
@@ -179,7 +179,7 @@ impl Task {
     ///
     /// ```no_run
     /// let name = String::from("Task 1");
-    /// let mut task = time_tracker::Task::new(&name);
+    /// let mut task = timetracker::Task::new(&name);
     /// std::thread::sleep(std::time::Duration::from_secs(1));
     /// task.stop();
     /// let duration = task.time_tracked_string();
@@ -262,6 +262,88 @@ impl Task {
 
         return output;
     }
+
+    /// Shows a timer for the given task name.
+    ///
+    /// Displays a timer for the given task name as 'Task Name: 00:00:00'.
+    /// The timer will update every second until the user types 'stop'.
+    ///
+    /// ! When testing, this function will immediately return to prevent the program from hanging.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let name = String::from("Task 1");
+    /// let mut task = timetracker::Task::new(&name);
+    /// let mut timer = timetracker::Timer::new();
+    /// task.show_timer(&mut timer);
+    /// ```
+    pub fn show_timer(&self, timer: &mut Timer) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut invalid = false;
+        // holds the input while the timer is running
+        thread::spawn(move || {
+            let mut input = String::new();
+
+            // detect test environment
+            let tt_env = std::env::var("TT_ENV").unwrap_or_else(|_| String::from(""));
+
+            if tt_env == "test" {
+                std::io::stdin().read_line(&mut input).unwrap();
+                debug::log::info!("Test environment detected.");
+            } else {
+                // read input from stdin silently so that the user doesn't see what they type
+                // (prevents ugly output when the user types while the timer is running)
+                input = match rpassword::read_password() {
+                    Ok(input) => input,
+                    Err(e) => {
+                        log::error!(&format!("Error reading input: {}", e));
+                        print!("Error reading input: {}", e);
+                        std::process::exit(1);
+                    }
+                };
+            }
+
+            // send the input to the main thread
+            tx.send(input).unwrap();
+        });
+        // loop until the user has typed 'stop'
+        loop {
+            timer.update();
+
+            // replace the timer and the user input with the new timer and user input
+            // print the task name and the timer
+            print!("\r{}: {}", self.name, timer);
+            io::stdout().flush().unwrap();
+
+            // check if notification is empty, if not, print it
+            print!("\n\r{}", "> ");
+            io::stdout().flush().unwrap();
+
+            // wait for 1 second
+            thread::sleep(std::time::Duration::from_secs(1));
+
+            // remove the last line
+            print!("\x1B[1A");
+
+            if let Ok(input) = rx.try_recv() {
+                if input.trim() == "stop" {
+                    break;
+                } else {
+                    invalid = true;
+                    break;
+                }
+            }
+        }
+
+        if invalid {
+            println!(
+                "{}: Invalid input. Please type 'stop' to stop the timer.",
+                self.name
+            );
+            self.show_timer(timer);
+        }
+    }
 }
 
 /// Format trait for displaying the time tracked in a clock format.
@@ -271,88 +353,6 @@ impl std::fmt::Display for Task {
         let elapsed = self.time_tracked_seconds();
         let clock_format = get_clock_format(elapsed);
         write!(f, "{}", clock_format)
-    }
-}
-
-/// Shows a timer for the given task name.
-///
-/// Displays a timer for the given task name as 'Task Name: 00:00:00'.
-/// The timer will update every second until the user types 'stop'.
-///
-/// ! When testing, this function will immediately return to prevent the program from hanging.
-///
-/// # Examples
-///
-/// ```no_run
-/// let task_name = String::from("Task 1");
-/// let mut timer = time_tracker::Timer::new();
-/// time_tracker::show_timer(&task_name, &mut timer);
-/// ```
-pub fn show_timer(task_name: &String, timer: &mut Timer) {
-    let (tx, rx) = std::sync::mpsc::channel();
-    let mut invalid = false;
-    // holds the input while the timer is running
-    thread::spawn(move || {
-        let mut input = String::new();
-
-        // detect test environment
-        let tt_env = std::env::var("TT_ENV").unwrap_or_else(|_| String::from(""));
-
-        if tt_env == "test" {
-            std::io::stdin().read_line(&mut input).unwrap();
-            debug::log::info!("Test environment detected.");
-            print!("\r");
-        } else {
-            // read input from stdin silently so that the user doesn't see what they type
-            // (prevents ugly output when the user types while the timer is running)
-            input = match rpassword::read_password() {
-                Ok(input) => input,
-                Err(e) => {
-                    log::error!(&format!("Error reading input: {}", e));
-                    print!("Error reading input: {}", e);
-                    std::process::exit(1);
-                }
-            };
-        }
-
-        // send the input to the main thread
-        tx.send(input).unwrap();
-    });
-    // loop until the user has typed 'stop'
-    loop {
-        timer.update();
-
-        // replace the timer and the user input with the new timer and user input
-        // print the task name and the timer
-        print!("\r{}: {}", task_name, timer);
-        io::stdout().flush().unwrap();
-
-        // check if notification is empty, if not, print it
-        print!("\n\r{}", "> ");
-        io::stdout().flush().unwrap();
-
-        // wait for 1 second
-        thread::sleep(std::time::Duration::from_secs(1));
-
-        // remove the last line
-        print!("\x1B[1A");
-
-        if let Ok(input) = rx.try_recv() {
-            if input.trim() == "stop" {
-                break;
-            } else {
-                invalid = true;
-                break;
-            }
-        }
-    }
-
-    if invalid {
-        println!(
-            "{}: Invalid input. Please type 'stop' to stop the timer.",
-            task_name
-        );
-        show_timer(task_name, timer);
     }
 }
 
