@@ -1,3 +1,11 @@
+//! This program is a simple time tracking application for the command line interface.
+//!
+//! It asks the user for a task name and then starts a timer.
+//! When the user enters "stop", the timer is stopped and the time is printed.
+//! The user can then enter another task name and the process repeats.
+//! The user can enter "exit" to exit the program.
+//! Upon exiting, the program prints the total time tracked for each task.
+
 use std::io::{stdout, Write};
 use time_tracker::{show_timer, Task, Timer};
 
