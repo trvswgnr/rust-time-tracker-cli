@@ -11,12 +11,12 @@ Clone the repository and run `cargo run` to start the program.
 MIT
 
 ## Current Features
-- Users can enter a task name and start a timer.
-- Users can see the timer running.
-- Users can stop the timer.
-- Users can start another timer.
-- Users can exit the program.
-- Users see a list of their time entries upon exiting the program.
+- [x] Users can enter a task name and start a timer.
+- [x] Users can see the timer running.
+- [x] Users can stop the timer.
+- [x] Users can start another timer.
+- [x] Users can exit the program.
+- [x] Users see a list of their time entries upon exiting the program.
 
 ## Feature Roadmap
 - [ ] Display a menu bar with pages:
