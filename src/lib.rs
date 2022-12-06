@@ -1,11 +1,15 @@
+//! Library for tracking time spent on tasks.
+//!
+//! Provides a simple interface for tracking time spent on tasks.
+//!
+//! * Users can start a task, stop a task, and get the total time spent on a task.
+//! * The total time spent on a task is stored in a `Task` struct.
+//! * The `Task` struct can be printed to the console to show the total time spent on a task.
+//! * The `Task` struct can also be converted to a string to show the total time spent on a task in a clock format.
+
+use debug::log;
 use lazy_static::lazy_static;
-use rpassword::read_password;
-use std::{
-    io,
-    io::{Read, Write},
-    thread,
-    time::Instant,
-};
+use std::{io, io::Write, thread, time::Instant};
 
 lazy_static! {
     static ref DAYS_DIVISOR: u64 = {
@@ -275,7 +279,7 @@ impl std::fmt::Display for Task {
 /// Displays a timer for the given task name as 'Task Name: 00:00:00'.
 /// The timer will update every second until the user types 'stop'.
 ///
-/// ! When testing, the rpassword::read_password() function will immediately return 'stop' because of error handling.
+/// ! When testing, this function will immediately return to prevent the program from hanging.
 ///
 /// # Examples
 ///
@@ -289,21 +293,40 @@ pub fn show_timer(task_name: &String, timer: &mut Timer) {
     let mut invalid = false;
     // holds the input while the timer is running
     thread::spawn(move || {
-        // read input from stdin silently so that the user doesn't see what they type
-        // (prevents ugly output when the user types while the timer is running)
-        let input = match read_password() {
-            Ok(task_name) => task_name,
-            Err(_) => String::from("stop"),
-        };
+        let mut input = String::new();
+
+        // detect test environment
+        let tt_env = std::env::var("TT_ENV").unwrap_or_else(|_| String::from(""));
+
+        if tt_env == "test" {
+            std::io::stdin().read_line(&mut input).unwrap();
+            debug::log::info!("Test environment detected.");
+            print!("\r");
+        } else {
+            // read input from stdin silently so that the user doesn't see what they type
+            // (prevents ugly output when the user types while the timer is running)
+            input = match rpassword::read_password() {
+                Ok(input) => input,
+                Err(e) => {
+                    log::error!(&format!("Error reading input: {}", e));
+                    print!("Error reading input: {}", e);
+                    std::process::exit(1);
+                }
+            };
+        }
+
+        // send the input to the main thread
         tx.send(input).unwrap();
     });
     // loop until the user has typed 'stop'
     loop {
         timer.update();
+
         // replace the timer and the user input with the new timer and user input
         // print the task name and the timer
         print!("\r{}: {}", task_name, timer);
         io::stdout().flush().unwrap();
+
         // check if notification is empty, if not, print it
         print!("\n\r{}", "> ");
         io::stdout().flush().unwrap();
@@ -325,132 +348,11 @@ pub fn show_timer(task_name: &String, timer: &mut Timer) {
     }
 
     if invalid {
-        println!("Invalid input. Please type 'stop' to stop the timer.");
+        println!(
+            "{}: Invalid input. Please type 'stop' to stop the timer.",
+            task_name
+        );
         show_timer(task_name, timer);
-    }
-}
-
-/// A struct that represents a child process.
-///
-/// Contains the child process itself, as well as the
-/// stdin and stdout of the child process.
-///
-/// # Examples
-///
-/// ```no_run
-/// use time_tracker::ChildProcess;
-///
-/// let mut child_process = ChildProcess::new();
-///
-/// child_process.write_to_stdin("exit");
-///
-/// let mut buffer = String::new();
-/// child_process.read_to_string(&mut buffer);
-/// ```
-pub struct ChildProcess {
-    /// The child process.
-    pub child: std::process::Child,
-    /// The stdin of the child process.
-    pub stdin: Option<std::process::ChildStdin>,
-    /// The stdout of the child process.
-    pub stdout: Option<std::process::ChildStdout>,
-}
-
-impl ChildProcess {
-    /// Creates a new `ChildProcess`.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// let mut child_process = time_tracker::ChildProcess::new();
-    /// ```
-    pub fn new() -> Self {
-        let child: std::process::Child = std::process::Command::new("cargo")
-            .arg("run")
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .unwrap();
-        return ChildProcess {
-            child,
-            stdin: None,
-            stdout: None,
-        };
-    }
-
-    /// Waits for the child process to exit and returns its exit status.
-    /// If the child process has already exited, this function returns immediately.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// let mut child_process = time_tracker::ChildProcess::new();
-    /// let exit_status = child_process.wait();
-    /// ```
-    pub fn wait(&mut self) -> Result<std::process::ExitStatus, std::io::Error> {
-        return self.child.wait();
-    }
-
-    /// Writes the given string to the child process's stdin.
-    ///
-    /// @note: appends a newline to the string to simulate the user pressing enter.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// let mut child_process = time_tracker::ChildProcess::new();
-    /// child_process.write_to_stdin("exit");
-    /// ```
-    pub fn write_to_stdin(&mut self, input: &str) {
-        let mut input = String::from(input);
-        if !input.ends_with('\n') {
-            input.push('\n');
-        }
-        // convert &str to &[u8]
-        let input = input.as_bytes();
-        self.child.stdin.as_mut().unwrap().write_all(input).unwrap();
-    }
-
-    /// Reads from the child process's stdout and writes it to the given String buffer.
-    ///
-    /// # Arguments
-    /// * `target` - A mutable reference to a [`String`](std::string::String) buffer to write the child process's stdout to.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// let mut child_process = time_tracker::ChildProcess::new();
-    /// let mut buffer = String::new();
-    /// child_process.read_to_string(&mut buffer);
-    /// ```
-    pub fn read_to_string(&mut self, target: &mut String) {
-        self.child
-            .stdout
-            .as_mut()
-            .unwrap()
-            .read_to_string(target)
-            .unwrap();
-    }
-
-    /// Check if the child process was terminated successfully.
-    ///
-    /// @returns [`bool`](std::primitive::bool) - `true` if the child process was terminated successfully, `false` otherwise.
-    ///
-    /// [`true`](std::primitive::bool) if the child process has ended, [`false`](std::primitive::bool) otherwise.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// let mut child_process = time_tracker::ChildProcess::new();
-    /// let ended = child_process.ended();
-    /// if ended {
-    ///    println!("The child process has ended.");
-    /// } else {
-    ///   println!("The child process is still running.");
-    /// }
-    /// ```
-    pub fn ended(&mut self) -> bool {
-        return self.wait().unwrap().success();
     }
 }
 
