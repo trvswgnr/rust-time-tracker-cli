@@ -6,10 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rpassword = "7.2"
-lazy_static = "1.4"
+crossterm = "0.25"
 chrono = "0.4"
-debug = { path = "./utils" }
+r2d2_sqlite = "0.21"
+rusqlite = "0.28"
+structopt = "0.3"
+clap = "4"
 
 [dev-dependencies]
 predicates = "2.1"

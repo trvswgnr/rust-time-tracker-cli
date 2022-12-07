@@ -1,74 +1,41 @@
-//! This program is a simple time tracking application for the command line interface.
-//!
-//! It asks the user for a task name and then starts a timer.
-//! When the user enters "stop", the timer is stopped and the time is printed.
-//! The user can then enter another task name and the process repeats.
-//! The user can enter "exit" to exit the program.
-//! Upon exiting, the program prints the total time tracked for each task.
-
-use std::io::{stdout, Write};
-use timetracker::{Task, Timer};
-
-/// A simple time tracking application for the command line interface.
-///
-/// This function is the entry point of the program.
-/// It asks the user for a task name and then starts a timer.
-/// When the user enters "stop", the timer is stopped and the time is printed.
-/// The user can then enter another task name and the process repeats.
-/// The user can enter "exit" to exit the program.
-/// Upon exiting, the program prints the total time tracked for each task.
-fn main() {
-    println!("Welcome to the time tracker!");
-    let prompt = "Enter a task name to start tracking it. Exit the program by typing 'exit'.\n";
-    let mut ended = true;
-    let mut tasks: Vec<Task> = Vec::new();
-    let mut tasks_completed: Vec<String> = Vec::new();
-    loop {
-        if ended {
-            print!("{}", prompt);
-            print!("> ");
-            stdout().flush().unwrap();
-
-            let mut task_name = String::new();
-            std::io::stdin().read_line(&mut task_name).unwrap();
-
-            task_name = task_name.trim().to_string();
-            if task_name == "exit" {
-                break;
-            }
-            tasks.push(Task::new(&task_name));
-            let task = tasks.last().unwrap();
-            ended = false;
-            println!("Started task '{}', stop the task with 'stop'", task.name);
-            // show the timer until the user presses enter
-            let mut new_timer = Timer::new();
-            task.show_timer(&mut new_timer);
-        } else {
-            let mut task = tasks.pop().unwrap();
-            task.stop();
-            ended = true;
-            tasks_completed.push(format!("{}: {}", task.name, task));
-            println!(
-                "Task '{}' completed in {}.",
-                task.name,
-                task.time_tracked_string()
-            );
-        }
-    }
-
-    // output the tasks that were completed
-    println!(
-        "
-
-Tasks completed:"
-    );
-    for task in tasks_completed {
-        println!("{}", task);
-    }
-
-    println!(
-        "
-
-Goodbye!"
-    );
+/*!
+This program is an advanced time tracking application for the command line interface.
+- [ ] Display a menu bar with pages:
+  - [ ] Time:
+    - [ ] Show the current week as a row of days with the total time for each day. Highlight the selected day.
+    - [ ] Default to the current day, showing the day's time entries:
+      - [ ] Show a list of time entries for the day.
+      - [ ] Allow the user to create a new time entry.
+      - [ ] Allow the user to edit a time entry.
+      - [ ] Allow the user to delete a time entry.
+    - [ ] Allow the user to select a different day.
+    - [ ] Allow the user to select a different week.
+    - [ ] When creating or editing a time entry:
+      - [ ] Allow the user to select a project.
+      - [ ] Allow the user to select a task from the selected project.
+      - [ ] Allow the user to enter a description.
+      - [ ] Allow the user to start a timer.
+      - [ ] Allow the user to stop a timer.
+      - [ ] Allow the user to enter a duration.
+  - [ ] Projects:
+    - [ ] Display a list of projects.
+    - [ ] Allow the user to create a new project.
+    - [ ] Allow the user to edit a project.
+    - [ ] Allow the user to delete a project.
+    - [ ] Allow the user to select a project, entering a project detail page:
+      - [ ] Show a list of tasks for the project.
+      - [ ] Allow the user to create a new task.
+      - [ ] Allow the user to edit a task.
+      - [ ] Allow the user to delete a task.
+  - [ ] Settings:
+    - [ ] Allow the user to enter their name.
+    - [ ] Allow the user to enter their email address.
+- [ ] Start the program on the Time page, showing the current day.
+- [ ] Store and retrieve data from an SQLite database.
+*/
+use timetracker::App;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut app = App::new();
+    app.run()?;
+    Ok(())
 }
