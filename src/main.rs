@@ -33,9 +33,9 @@ This program is an advanced time tracking application for the command line inter
 - [ ] Start the program on the Time page, showing the current day.
 - [ ] Store and retrieve data from an SQLite database.
 */
-use timetracker::App;
+// use timetracker::App;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut app = App::new();
-    app.run()?;
+    // let mut app = App::new();
+    // app.run()?;
     Ok(())
 }

@@ -10,7 +10,6 @@ crossterm = "0.25"
 chrono = "0.4"
 r2d2_sqlite = "0.21"
 rusqlite = "0.28"
-structopt = "0.3"
 clap = "4"
 
 [dev-dependencies]
