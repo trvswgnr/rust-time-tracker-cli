@@ -127,6 +127,11 @@ mod tests {
     */
     #[test]
     fn test_start_time_page_display() {
+        // First let's create a new thread to run our program.
+        // We'll need to create a channel to communicate with the thread.
+        let (tx, rx) = channel();
+        // We'll need to create a thread to run our program.
+        let handle = thread::spawn(move || {});
         // First let's mock the database.
         // We'll need to create a connection to the database.
         let conn = Connection::open_in_memory().unwrap();
@@ -140,23 +145,33 @@ mod tests {
             NO_PARAMS,
         )
         .unwrap();
+        // We'll need to create the tasks table.
+        // It should have a unique id.
+        // It should have a project_id.
+        // It should have a name.
+        // It should have a description.
+        // It should have a field that contain the ids of the time entries (we'll use a string to store the ids and separate them with commas).
         conn.execute(
             "CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY,
                 project_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 description TEXT,
+                time_entries TEXT,
                 FOREIGN KEY(project_id) REFERENCES projects(id)
             )",
             NO_PARAMS,
         )
         .unwrap();
+
+        // the created_at field should be default to the current time (as a unix timestamp).
         conn.execute(
             "CREATE TABLE IF NOT EXISTS time_entries (
                 id INTEGER PRIMARY KEY,
+                description TEXT NOT NULL,
                 task_id INTEGER NOT NULL,
-                start_time INTEGER NOT NULL,
-                end_time INTEGER,
+                duration INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
                 FOREIGN KEY(task_id) REFERENCES tasks(id)
             )",
             NO_PARAMS,
@@ -178,40 +193,26 @@ mod tests {
         conn.execute(
             "INSERT INTO tasks (project_id, name, description) VALUES (?1, ?2, ?3)",
             params![1, "Test Task 1", "This is a test task."],
-        )
-        .unwrap();
+        );
         conn.execute(
             "INSERT INTO tasks (project_id, name, description) VALUES (?1, ?2, ?3)",
             params![1, "Test Task 2", "This is a test task."],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO tasks (project_id, name, description) VALUES (?1, ?2, ?3)",
-            params![2, "Test Task 1", "This is a test task."],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO tasks (project_id, name, description) VALUES (?1, ?2, ?3)",
-            params![2, "Test Task 2", "This is a test task."],
-        )
-        .unwrap();
+        );
         // We'll need to insert some time entries.
         conn.execute(
-            "INSERT INTO time_entries (task_id, start_time, end_time) VALUES (?1, ?2, ?3)",
-            params![1, 1606825600, 1606829200],
-        )
-        .unwrap();
+            "INSERT INTO time_entries (description, task_id, duration, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params!["Test Entry 1", 1, 3600, "2020-12-04 01:00:00"],
+        );
         conn.execute(
-            "INSERT INTO time_entries (task_id, start_time, end_time) VALUES (?1, ?2, ?3)",
-            params![2, 1606829200, 1606832800],
-        )
-        .unwrap();
+            "INSERT INTO time_entries (description, task_id, duration, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params!["Test Entry 2", 2, 1800, "2020-12-04 01:30:00"],
+        );
 
-        // We'll need to create a new instance of the TimeTracker struct.
-        let mut time_tracker = TimeTracker::new(conn);
+        // We'll need to create a new instance of the App struct.
+        let mut time_tracker = App::new(conn);
 
         // Then we'll need to call the start method.
-        time_tracker.start();
+        time_tracker.run();
 
         // We'll need to check that the program starts on the Time page.
         assert_eq!(time_tracker.current_page, Page::Time);
@@ -228,7 +229,7 @@ mod tests {
         // We'll need to get the lock.
         let mut handle = stdout.lock();
         // Check that the main menu is in the stdout.
-        assert!(handle.read_to_string(&mut output).is_ok());
+        handle.read_to_string(&mut output).unwrap();
 
         // We'll need to check that the current week is displayed as a row of days with the total time for each day.
         // We'll also check that the current day is highlighted in the row of days.
