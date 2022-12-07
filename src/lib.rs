@@ -84,50 +84,46 @@ use std::{
     time::{Duration, Instant},
 };
 
-// Let's start by creating our tests.
-// The first thing we need to do is create a module for our tests.
-// This way we can build our features to pass the tests.
-
-// Let's create a test to check our program's flow.
+/// Tests that the output is correct at various stages of the program.
 #[cfg(test)]
-mod tests {
-    // We'll need to import the necessary libraries.
+mod test_displays_correct_output {
     use super::*;
-    use chrono::{Datelike, Timelike};
-    use std::{
-        io::stdout,
-        time::{SystemTime, UNIX_EPOCH},
-    };
 
-    // Tests:
-    // he program starts on the Time page.
-    // The main menu is displayed.
-    // The current week is displayed as a row of days with the total time for each day. The current day is highlighted in the row of days. The week's total time is displayed at the end of the row of days. The dates are above each day.
-    // We'll also check that the current day's time entries are displayed in a list.
-    // We'll also check that the current day's total time is displayed at the bottom of the list.
-    // The sub-menu is displayed at the bottom of the screen.
-    /*
+    /**
+    Tests that the program starts on the Time page and displays the correct output.
+    - The program starts on the Time page.
+    - The main menu is displayed.
+    - The current week is displayed as a row of days with the total time for each day.
+      - The current day is highlighted in the row of days.
+      - The week's total time is displayed at the end of the row of days.
+      - The dates are above each day.
+    - The current day's time entries are displayed in a list.
+    - The current day's total time is displayed at the bottom of the list.
+    - The sub-menu is displayed at the bottom of the screen.
+
     Here's how the start of the program should look:
-
+    ```sh
     Welcome to the Time Tracker!
-    ------------------------------------------------------------
+    ---------------------------------------------
     Time (t) | Projects (p) | Quit (q) | Help (h)
-    ------------------------------------------------------------
+    ---------------------------------------------
 
     | 12/01 | 12/02 | 12/03 | 12/04 | 12/05 | 12/06 | 12/07 |  00:00  |
     |  Mon  |  Tue  |  Wed  |  Thu  |  Fri  |  Sat  |  Sun  |  Total  |
-    | 00:00 | 00:00 | 00:00 | 01:30 | 00:00 | 00:00 | 00:00 |  00:00  |
+    | 00:00 | 00:00 | 00:00 | 01:30 | 00:00 | 00:00 | 00:00 |  01:30  |
 
     Thursday, December 4, 2020:
+
     1. 01:00 - Test Entry 1 (Test Project 1: Test Task 1)
     2. 00:30 - Test Entry 2 (Test Project 1: Test Task 2)
 
-    ------------------------------------------------------------
-    New (n) | Edit (e) | Delete (d) | Change Date (c)
+    --------------------------------------------------------------------
+    New (n) | Edit (e) | Delete (d) | Change Date (c) | Go to Today (g)
+    ```
     */
     #[test]
     fn test_start_time_page_display() {
-        // First, instead of using the real stdout, we'll use a mock.
+        // instead of using the real stdout, we'll use a mock.
         let mut stdout = io::Cursor::new(Vec::new());
 
         // here's how we'll write to the mock:
@@ -137,130 +133,170 @@ mod tests {
         let output = String::from_utf8(stdout.into_inner()).unwrap();
         assert_eq!(output, "Hello, world!");
 
-        // in our actual program, we'll use the real stdout with crate crossterm:
-        let mut stdout = io::stdout();
-        write!(stdout, "Hello, world!").unwrap();
+        // mock the database connection (the real database connection will use a file on the user's computer)
+        let conn = Connection::open_in_memory().unwrap();
 
-        // and to read from the real stdout, we'll use the following:
-        let mut buffer = String::new();
-        std::io::stdout().read_to_string(&mut buffer).unwrap();
+        // create the tables in the database:
+        // - id is the unique id of the project.
+        // - name is the name of the project.
+        // - description is the description of the project.
+        // - tasks is a list of the tasks that belong to the project, stored as a string of comma-separated ids.
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS projects (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    tasks TEXT
+                )",
+            NO_PARAMS,
+        )
+        .unwrap();
+        // id is the unique id of the task.
+        // project_id is the id of the project that the task belongs to.
+        // name is the name of the task.
+        // description is the description of the task.
+        // time_entries is a list of the time entries that belong to the task, stored as a string of comma-separated ids.
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS tasks (
+                    id INTEGER PRIMARY KEY,
+                    project_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    time_entries TEXT,
+                    FOREIGN KEY(project_id) REFERENCES projects(id)
+                )",
+            NO_PARAMS,
+        )
+        .unwrap();
 
-        // check that the buffer is equal to the expected output:
-        assert_eq!(buffer, "Hello, world!");
+        // id is the unique id of the time entry.
+        // description is the description of the time entry.
+        // task_id is the id of the task that the time entry belongs to.
+        // start is the start time of the time entry, stored as a unix timestamp.
+        // end is the end time of the time entry, stored as a unix timestamp.
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS time_entries (
+                    id INTEGER PRIMARY KEY,
+                    description TEXT NOT NULL,
+                    task_id INTEGER NOT NULL,
+                    start INTEGER NOT NULL,
+                    end INTEGER,
+                    FOREIGN KEY(task_id) REFERENCES tasks(id)
+                )",
+            NO_PARAMS,
+        )
+        .unwrap();
+        // insert some data into the database.
+        // insert some projects.
+        conn.execute(
+            "INSERT INTO projects (name, description) VALUES (?1, ?2)",
+            params!["Test Project 1", "This is a test project."],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO projects (name, description) VALUES (?1, ?2)",
+            params!["Test Project 2", "This is a test project."],
+        )
+        .unwrap();
+        // insert some tasks.
+        conn.execute(
+            "INSERT INTO tasks (project_id, name, description) VALUES (?1, ?2, ?3)",
+            params![1, "Test Task 1", "This is a test task."],
+        );
+        conn.execute(
+            "INSERT INTO tasks (project_id, name, description) VALUES (?1, ?2, ?3)",
+            params![1, "Test Task 2", "This is a test task."],
+        );
+        // insert some time entries.
+        conn.execute(
+            "INSERT INTO time_entries (description, task_id, start, end) VALUES (?1, ?2, ?3, ?4)",
+            params![
+                "Test Entry 1", // description
+                1,              // task_id
+                1607116800,     // start - 12/04/2020 @ 12:00am (UTC)
+                1607120400      // end - 12/04/2020 @ 1:00am (UTC)
+            ],
+        );
+        conn.execute(
+            "INSERT INTO time_entries (description, task_id, start, end) VALUES (?1, ?2, ?3, ?4)",
+            params![
+                "Test Entry 2", // description
+                2,              // task_id
+                1607120400,     // start - 12/04/2020 @ 1:00am (UTC)
+                1607121000      // end - 12/04/2020 @ 1:30am (UTC)
+            ],
+        );
+
+        // update the tasks in the database to include the time entries.
+        conn.execute(
+            "UPDATE tasks SET time_entries = ?1 WHERE id = ?2",
+            params!["1", 1],
+        );
+        conn.execute(
+            "UPDATE tasks SET time_entries = ?1 WHERE id = ?2",
+            params!["2", 2],
+        );
+
+        // update the projects in the database to include the tasks.
+        conn.execute(
+            "UPDATE projects SET tasks = ?1 WHERE id = ?2",
+            params!["1,2", 1],
+        );
+
+        // create a new instance of the App struct.
+        let mut time_tracker = App::new(conn, stdout);
+
+        // Then we'll need to call the start method.
+        time_tracker.run();
+
+        // check that the program starts on the Time page.
+        assert_eq!(time_tracker.current_page, Page::Time);
+
+        // check that the welcome message is displayed.
+        let welcome_message = "Welcome to the Time Tracker!";
+        assert!(time_tracker.stdout.contains(welcome_message));
+
+        // check that the main menu is displayed.
+        let main_menu = "Time (t) | Projects (p) | Quit (q) | Help (h)";
+        assert!(time_tracker.stdout.contains(main_menu));
+
+        // * we'll need to get the current date in our app, but we'll mock it here as a Thursday, December 4, 2020.
+        let current_date = NaiveDate::from_ymd(2020, 12, 4);
+
+        time_tracker.go_to_day(current_date); // show the time page for the specified date.
+
+        // make sure the current date is displayed.
+        assert!(time_tracker
+            .stdout
+            .contains(&format!("{}", current_date.format("%A, %B %e, %Y")))); // Thursday, December 4, 2020
+
+        // make the week dates are displayed.
+        let week_dates = "| 12/01 | 12/02 | 12/03 | 12/04 | 12/05 | 12/06 | 12/07 |";
+        assert!(time_tracker.stdout.contains(week_dates));
+
+        // make sure the week is displayed.
+        let week = "|  Mon  |  Tue  |  Wed  |  Thu  |  Fri  |  Sat  |  Sun  |  Total  |";
+        assert!(time_tracker.stdout.contains(week));
+
+        // TODO: We'll need to check that the current day is highlighted somehow, maybe with a different color.
+
+        // check that the times for each day are displayed below the dates, and the total time for the day is displayed at the end of the row.
+        let day_times =
+            "|  00:00  |  00:00  |  00:00  |  01:30  |  00:00  |  00:00  |  00:00  |  01:30  |";
+        assert!(time_tracker.stdout.contains(day_times));
+
+        // check that the total time for the day is displayed.
+        let total_time = "Total: 1h 30m";
+        assert!(time_tracker.stdout.contains(total_time));
+
+        // check that the time entries are displayed in reverse chronological order, with the most recent time entry at the top.
+        let time_entry1 = "1. 01:00 - Test Entry 1 (Test Project 1: Test Task 1)";
+        assert!(time_tracker.stdout.contains(time_entry1));
+        let time_entry2 = "2. 01:30 - Test Entry 2 (Test Project 1: Test Task 2)";
+        assert!(time_tracker.stdout.contains(time_entry2));
+
+        // check that the sub-menu is displayed.
+        let sub_menu = "New (n) | Edit (e) | Delete (d) | Change Date (c) | Go to Today (g)";
+        assert!(time_tracker.stdout.contains(sub_menu));
     }
-}
-
-fn mytests() {
-    /*
-    // First let's mock the database.
-    // We'll need to create a connection to the database.
-    let conn = Connection::open_in_memory().unwrap();
-    // We'll need to create the tables.
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS projects (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT
-            )",
-        NO_PARAMS,
-    )
-    .unwrap();
-    // We'll need to create the tasks table.
-    // It should have a unique id.
-    // It should have a project_id.
-    // It should have a name.
-    // It should have a description.
-    // It should have a field that contain the ids of the time entries (we'll use a string to store the ids and separate them with commas).
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY,
-                project_id INTEGER NOT NULL,
-                name TEXT NOT NULL,
-                description TEXT,
-                time_entries TEXT,
-                FOREIGN KEY(project_id) REFERENCES projects(id)
-            )",
-        NO_PARAMS,
-    )
-    .unwrap();
-
-    // the created_at field should be default to the current time (as a unix timestamp).
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS time_entries (
-                id INTEGER PRIMARY KEY,
-                description TEXT NOT NULL,
-                task_id INTEGER NOT NULL,
-                duration INTEGER NOT NULL,
-                created_at INTEGER NOT NULL,
-                FOREIGN KEY(task_id) REFERENCES tasks(id)
-            )",
-        NO_PARAMS,
-    )
-    .unwrap();
-    // We'll need to insert some data into the database.
-    // We'll need to insert some projects.
-    conn.execute(
-        "INSERT INTO projects (name, description) VALUES (?1, ?2)",
-        params!["Test Project 1", "This is a test project."],
-    )
-    .unwrap();
-    conn.execute(
-        "INSERT INTO projects (name, description) VALUES (?1, ?2)",
-        params!["Test Project 2", "This is a test project."],
-    )
-    .unwrap();
-    // We'll need to insert some tasks.
-    conn.execute(
-        "INSERT INTO tasks (project_id, name, description) VALUES (?1, ?2, ?3)",
-        params![1, "Test Task 1", "This is a test task."],
-    );
-    conn.execute(
-        "INSERT INTO tasks (project_id, name, description) VALUES (?1, ?2, ?3)",
-        params![1, "Test Task 2", "This is a test task."],
-    );
-    // We'll need to insert some time entries.
-    conn.execute(
-            "INSERT INTO time_entries (description, task_id, duration, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params!["Test Entry 1", 1, 3600, "2020-12-04 01:00:00"],
-        );
-    conn.execute(
-            "INSERT INTO time_entries (description, task_id, duration, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params!["Test Entry 2", 2, 1800, "2020-12-04 01:30:00"],
-        );
-
-    // We'll need to create a new instance of the App struct.
-    let mut time_tracker = App::new(conn);
-
-    // Then we'll need to call the start method.
-    time_tracker.run();
-
-    // We'll need to check that the program starts on the Time page.
-    assert_eq!(time_tracker.current_page, Page::Time);
-
-    // We'll need to check that the main menu is displayed.
-    assert_eq!(
-        time_tracker.main_menu,
-        vec!["Time (t)", "Projects (p)", "Quit (q)", "Help (h)"]
-    );
-    // Make sure the main menu contents are in the stdout.
-    let mut output = String::new();
-    // We'll need to get the stdout.
-    let stdout = io::stdout();
-    // We'll need to get the lock.
-    let mut handle = stdout.lock();
-    // Check that the main menu is in the stdout.
-    handle.read_to_string(&mut output).unwrap();
-
-    // We'll need to check that the current week is displayed as a row of days with the total time for each day.
-    // We'll also check that the current day is highlighted in the row of days.
-    // We'll also check that the week's total time is displayed at the end of the row of days.
-    // We'll also check that the dates are above each day.
-    // We'll need to get the current date.
-    let current_date = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    // Let's check
-    */
 }
